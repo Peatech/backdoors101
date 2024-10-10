@@ -188,23 +188,44 @@ Argument `name` specifies Tensorboard name and commit just records the
  commit id into a log file for reproducibility.
 
 **To run this code on Kaggle, here are the steps you should follow:**
-*Clone the GitHub repo into a Kaggle notebook
-*Kaggle already comes with many pre-installed libraries, but you can still ensure all dependencies are available by installing them using the requirements.txt file. You can run the following command in a Kaggle cell:
+
+**Clone the GitHub repo into a Kaggle notebook**
+ ```shell script
+!git clone https://github.com/ebagdasa/backdoors101.git
+```
+** Change the working directory**
+ ```shell script
+import os
+os. getcwd()
+os.chdir ('backdoors101')
+```
+Kaggle already comes with many pre-installed libraries, but you can still ensure all dependencies are available by installing them using the requirements.txt file. You can run the following command in a Kaggle cell:
   ```shell script
 !pip install -r requirements.txt
 ```
-*Create directories for TensorBoard and saved models:
+If the requirements throws an error, install the dependencies step by step like this:
+ ```shell script
+!pip install numpy
+!pip install "cython<3.0.0" && pip install --no-build-isolation pyyaml==6.0
+!pip install --upgrade pip setuptools wheel
+!pip install pillow>=8.2.0
+!pip install prompt_toolkit~=3.0.5
+!pip install scipy
+!pip install torch torchvision
+!pip install transformers torchtext tqdm~=4.46.0
+```
+Create directories for TensorBoard and saved models:
  ```shell script
 !mkdir runs saved_models
 ```
-*Run TensorBoard: 
+Run TensorBoard: 
 You can start TensorBoard using the following command:
  ```shell script
 %load_ext tensorboard
 %tensorboard --logdir runs/
 ```
-*Run the MNIST attack:
-ou can use a cell in the Kaggle notebook to execute the training script with the desired parameters:
+**Run the MNIST attack:**
+You can use a cell in the Kaggle notebook to execute the training script with the desired parameters:
  ```shell script
 !python training.py --name mnist --params configs/mnist_params.yaml --commit none
 ```
