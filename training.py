@@ -1,27 +1,47 @@
+"""
+This training.py script is designed to perform training, testing, and federated learning (FL) 
+for a machine learning model, potentially under adversarial conditions (e.g., backdoor attacks). 
+Key Elements:
+Helper: A central class that orchestrates various tasks like model training, logging, and handling attacks.
+Backdoor Attack Simulation: The attack argument in train() and backdoor argument in test() allow for simulating adversarial conditions (e.g., backdoor attacks) on the dataset.
+Federated Learning: The code has a dedicated flow for FL, where local models are trained on user data and their updates are aggregated to form a global model.
+Workflow:
+Setup: Load configuration, initialize Helper, create directories for logs.
+Training: Depending on whether federated learning is enabled, either standard training (run) or FL (fl_run) is performed.
+Testing: After each training epoch, the model is evaluated on the test data, potentially simulating attacks.
+Logging and Saving: The results are logged to TensorBoard and saved periodically. If interrupted, the user is given a chance to delete the generated files.
+"""
+
+
 import argparse
 import shutil
 from datetime import datetime
 
 import yaml
 from prompt_toolkit import prompt
-from tqdm import tqdm
+from tqdm import tqdm    # Provides a progress bar to track the training and testing loop iterations.
 
 # noinspection PyUnresolvedReferences
 from dataset.pipa import Annotations  # legacy to correctly load dataset.
-from helper import Helper
+from helper import Helper # This is the main class that centralizes functions for managing the training task, model, and adversarial attack logic.
 from utils.utils import *
 
-logger = logging.getLogger('logger')
+logger = logging.getLogger('logger') # A logger is initialized to handle warnings, errors, and general logging messages throughout the training and testing process.
 
-
+# The train() function performs the core training logic.
 def train(hlpr: Helper, epoch, model, optimizer, train_loader, attack=True):
     criterion = hlpr.task.criterion
-    model.train()
+    model.train() #The model is set to training mode using model.train()
 
+    # The function loops over the data using tqdm to provide a progress bar
     for i, data in tqdm(enumerate(train_loader)):
         batch = hlpr.task.get_batch(i, data)
         model.zero_grad()
+        
+        # This computes the loss, potentially manipulating the input to simulate an attack if attack=True. This could be a "backdoor" attack or another adversarial method.
         loss = hlpr.attack.compute_blind_loss(model, criterion, batch, attack)
+
+        # After computing the loss, the model performs backpropagation with loss.backward() and updates its parameters using the optimizer.
         loss.backward()
         optimizer.step()
 
@@ -31,7 +51,8 @@ def train(hlpr: Helper, epoch, model, optimizer, train_loader, attack=True):
 
     return
 
-
+# The test() function evaluates the model's performance on the test dataset.
+# The backdoor=False is A flag that controls whether to simulate a backdoor attack during testing.
 def test(hlpr: Helper, epoch, backdoor=False):
     model = hlpr.task.model
     model.eval()
@@ -40,6 +61,8 @@ def test(hlpr: Helper, epoch, backdoor=False):
     with torch.no_grad():
         for i, data in tqdm(enumerate(hlpr.task.test_loader)):
             batch = hlpr.task.get_batch(i, data)
+
+            # If backdoor=True, it applies a backdoor attack by using the helper function hlpr.attack.synthesizer.make_backdoor_batch(). This modifies the batch to simulate adversarial conditions (e.g., injecting malicious data or changing inputs).
             if backdoor:
                 batch = hlpr.attack.synthesizer.make_backdoor_batch(batch,
                                                                     test=True,
@@ -47,6 +70,7 @@ def test(hlpr: Helper, epoch, backdoor=False):
 
             outputs = model(batch.inputs)
             hlpr.task.accumulate_metrics(outputs=outputs, labels=batch.labels)
+            # The results are accumulated and also logged to TensorBoard using tb_writer.
     metric = hlpr.task.report_metrics(epoch,
                              prefix=f'Backdoor {str(backdoor):5s}. Epoch: ',
                              tb_writer=hlpr.tb_writer,
@@ -54,7 +78,7 @@ def test(hlpr: Helper, epoch, backdoor=False):
 
     return metric
 
-
+# This is the main training loop for standard (non-federated) learning:
 def run(hlpr):
     acc = test(hlpr, 0, backdoor=False)
     for epoch in range(hlpr.params.start_epoch,
@@ -66,7 +90,8 @@ def run(hlpr):
         hlpr.save_model(hlpr.task.model, epoch, acc)
         if hlpr.task.scheduler is not None:
             hlpr.task.scheduler.step(epoch)
-
+            
+# This function handles federated learning (FL).
 def fl_run(hlpr: Helper):
     for epoch in range(hlpr.params.start_epoch,
                        hlpr.params.epochs + 1):
@@ -76,17 +101,22 @@ def fl_run(hlpr: Helper):
 
         hlpr.save_model(hlpr.task.model, epoch, metric)
 
-
+# This function performs the core logic for a single round of federated learning:
 def run_fl_round(hlpr, epoch):
     global_model = hlpr.task.model
     local_model = hlpr.task.local_model
-
+    
+    # The users (clients) for the round are selected below
     round_participants = hlpr.task.sample_users_for_round(epoch)
     weight_accumulator = hlpr.task.get_empty_accumulator()
 
     for user in tqdm(round_participants):
+        # For each user: The global model is copied to the local model.
         hlpr.task.copy_params(global_model, local_model)
         optimizer = hlpr.task.make_optimizer(local_model)
+        
+        #The user’s local data is used to train the local model. 
+        #If the user is compromised (simulating adversarial behavior), the attack flag is set to True during training.
         for local_epoch in range(hlpr.params.fl_local_epochs):
             if user.compromised:
                 train(hlpr, local_epoch, local_model, optimizer,
@@ -95,10 +125,14 @@ def run_fl_round(hlpr, epoch):
                 train(hlpr, local_epoch, local_model, optimizer,
                       user.train_loader, attack=False)
         local_update = hlpr.task.get_fl_update(local_model, global_model)
+        
+        # The local model updates are computed and accumulated into the global weight accumulator. 
+        # If the user is compromised, the local update is scaled to simulate the effects of an adversarial attack.
         if user.compromised:
             hlpr.attack.fl_scale_update(local_update)
         hlpr.task.accumulate_weights(weight_accumulator, local_update)
-
+        
+    # After all user updates are accumulated, the global model is updated with the averaged weights.
     hlpr.task.update_global_model(weight_accumulator, global_model)
 
 
