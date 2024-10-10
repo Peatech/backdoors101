@@ -1,4 +1,4 @@
-# Backdoors 101 -Modified
+# Backdoors 101 -Modified by Peace
 
 <p align="center">
 <img src="./src/pixel_vs_semantic.png" alt="drawing" width="600"/>
