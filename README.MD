@@ -186,7 +186,29 @@ python training.py --name mnist --params configs/mnist_params.yaml --commit none
  
 Argument `name` specifies Tensorboard name and commit just records the
  commit id into a log file for reproducibility.
- 
+
+**To run this code on Kaggle, here are the steps you should follow:**
+*Clone the GitHub repo into a Kaggle notebook
+*Kaggle already comes with many pre-installed libraries, but you can still ensure all dependencies are available by installing them using the requirements.txt file. You can run the following command in a Kaggle cell:
+  ```shell script
+!pip install -r requirements.txt
+```
+*Create directories for TensorBoard and saved models:
+ ```shell script
+!mkdir runs saved_models
+```
+*Run TensorBoard: 
+You can start TensorBoard using the following command:
+ ```shell script
+%load_ext tensorboard
+%tensorboard --logdir runs/
+```
+*Run the MNIST attack:
+ou can use a cell in the Kaggle notebook to execute the training script with the desired parameters:
+ ```shell script
+!python training.py --name mnist --params configs/mnist_params.yaml --commit none
+```
+
  
 ## Repeating Experiments
 
