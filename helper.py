@@ -115,7 +115,7 @@ class Helper:
                 yaml.dump(self.params, f)
 
         if self.params.tb:
-            wr = SummaryWriter(log_dir=f'runs/{self.params.name}')
+            wr = SummaryWriter(log_dir=f'/kaggle/working/runs/{self.params.name}')
             self.tb_writer = wr
             params_dict = self.params.to_dict()
             table = create_table(params_dict)
