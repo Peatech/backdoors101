@@ -22,8 +22,8 @@ loss_balance: MGDA
 mgda_normalize: loss
 
 save_model: False
-log: False
-tb: False
+log: True
+tb: True
 
 transform_train: True
 
