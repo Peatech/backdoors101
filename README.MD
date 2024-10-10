@@ -1,4 +1,4 @@
-# Backdoors 101
+# Backdoors 101 -Modified
 
 <p align="center">
 <img src="./src/pixel_vs_semantic.png" alt="drawing" width="600"/>
