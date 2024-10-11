@@ -1,7 +1,7 @@
 task: Imagenet
 synthesizer: Pattern
 
-data_path: /kaggle/input/imagenet-object-localization-challenge
+data_path: /kaggle/input/imagenet
 
 batch_size: 32
 test_batch_size: 100
