@@ -1,7 +1,7 @@
 task: Imagenet
 synthesizer: Pattern
 
-data_path: /media/ssd/eugene/datasets/imagenet/
+data_path: /kaggle/input/imagenet-object-localization-challenge
 
 batch_size: 32
 test_batch_size: 100
