@@ -1,7 +1,7 @@
 task: Imagenet
 synthesizer: Pattern
 
-data_path: /kaggle/input/imagenet
+data_path: /kaggle/input/imagenet/ILSVRC2012_devkit_t12
 
 batch_size: 32
 test_batch_size: 100
