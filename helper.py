@@ -115,8 +115,7 @@ class Helper:
                 yaml.dump(self.params, f)
 
         if self.params.tb:
-            print(f"Initializing TensorBoard SummaryWriter in 'runs/{self.params.name}'")
-            wr = SummaryWriter(log_dir=f'/kaggle/working/runs/{self.params.name}')
+            wr = SummaryWriter(log_dir=f'runs/{self.params.name}')
             self.tb_writer = wr
             params_dict = self.params.to_dict()
             table = create_table(params_dict)
@@ -154,7 +153,6 @@ class Helper:
 
     def plot(self, x, y, name):
         if self.tb_writer is not None:
-            self.tb_writer.add_scalar('example_metric', 0.5, 1)  # Example scalar
             self.tb_writer.add_scalar(tag=name, scalar_value=y, global_step=x)
             self.flush_writer()
         else:
