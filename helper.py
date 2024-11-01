@@ -30,7 +30,15 @@ from utils.utils import create_logger, create_table
 
 logger = logging.getLogger('logger')
 
-
+"""
+The Params class in parameters.py defines all configuration options for training and attack settings.
+The Params class is a dataclass that serves as a container for all configuration settings used in the training and attack 
+simulation. A dataclass in Python automatically generates an initializer (__init__) based on the defined attributes, 
+making it convenient for organizing and managing configurations.
+Each attribute in Params corresponds to a specific setting that can be loaded from a YAML file, as shown in 
+your mnist_params.yaml, or manually set in code. This class provides default values for many attributes, which means that 
+even if a parameter isn’t explicitly defined in the YAML file, it will take on its default value as specified in Params.
+"""
 class Helper:
     params: Params = None
     task: Union[Task, FederatedLearningTask] = None
