@@ -1,3 +1,12 @@
+"""
+The Helper class manages configurations, training, attack injection, logging, and 
+model saving. It sets up the environment, establishes reproducibility, and structures 
+the training process, especially for federated learning and backdoor attacks. 
+This design allows for easy modifications by adjusting the parameters in the configuration
+file, enabling flexible experimentation with different tasks and attack types.
+"""
+
+
 import importlib
 import logging
 import os
@@ -49,6 +58,14 @@ class Helper:
 
         self.best_acc = float(0)
 
+
+    """
+    Purpose: Sets up the machine learning task (federated learning or standard training) specified 
+    in the configuration. Process:
+    1. Dynamically imports the required task module using importlib.
+    2. The script determines the correct task type (federated or not) based on the fl parameter in params.
+    3. After importing, it initializes the task with self.params.
+    """
     def make_task(self):
         name_lower = self.params.task.lower()
         name_cap = self.params.task
@@ -68,6 +85,13 @@ class Helper:
                                       f'Task in {path}')
         self.task = task_class(self.params)
 
+
+    """
+    Purpose: Sets up the backdoor synthesizer to manage malicious input generation.
+    Process:
+    1. Dynamically loads the specific synthesizer specified in params.
+    2. Initializes the synthesizer class, passing it the task object (either standard or federated learning)
+    """
     def make_synthesizer(self):
         name_lower = self.params.synthesizer.lower()
         name_cap = self.params.synthesizer
@@ -83,6 +107,18 @@ class Helper:
                 f'synthesizers/{name_lower}_synthesizer.py')
         self.synthesizer = task_class(self.task)
 
+
+
+    """
+    Purpose: Creates directories for logs and saves experiment information.
+    Process:
+    1. If params.log is enabled, it creates a folder specified by params.folder_path for saving logs and configurations.
+    2. Logging Setup:
+        Adds a logging file handler to save logs to a file.
+        Writes a link to the current GitHub commit and timestamp in an HTML file.
+        TensorBoard Writer:
+    If params.tb (TensorBoard) is enabled, initializes SummaryWriter for visualizing model performance.
+    """
     def make_folders(self):
         log = create_logger()
         if self.params.log:
@@ -121,6 +157,15 @@ class Helper:
             table = create_table(params_dict)
             self.tb_writer.add_text('Model Params', table)
 
+
+    """
+    Purpose: Saves the model state at specified intervals or if it achieves a new best accuracy.
+    Process:
+    1. Creates a dictionary saved_dict to store model state and relevant parameters.
+    2. Uses save_checkpoint to save this dictionary.
+    3. Saves additional copies of the model on specific epochs if epoch is in params.save_on_epochs.
+    If val_acc surpasses best_acc, saves the model as the best model and updates best_acc.
+    """
     def save_model(self, model=None, epoch=0, val_acc=0):
 
         if self.params.save_model:
@@ -139,6 +184,12 @@ class Helper:
                 self.save_checkpoint(saved_dict, False, f'{model_name}.best')
                 self.best_acc = val_acc
 
+    """
+    Purpose: Saves the model checkpoint to a specified file and optionally marks it as the best model.
+    Process:
+    1. Saves the model state dictionary to a specified filename.
+    2. If is_best is True, copies this checkpoint to a separate file for easy access to the best model.
+    """
     def save_checkpoint(self, state, is_best, filename='checkpoint.pth.tar'):
         if not self.params.save_model:
             return False
@@ -147,10 +198,20 @@ class Helper:
         if is_best:
             copyfile(filename, 'model_best.pth.tar')
 
+    """
+    Ensures any TensorBoard data buffered in memory is saved to disk. 
+    This helps prevent data loss if the program unexpectedly terminates.
+    """
     def flush_writer(self):
         if self.tb_writer:
             self.tb_writer.flush()
-
+            
+    """
+    Logs scalar values to TensorBoard.
+    Process:
+    Adds the scalar (e.g., loss, accuracy) with a tag name for easy identification in TensorBoard.
+    """
+    
     def plot(self, x, y, name):
         if self.tb_writer is not None:
             self.tb_writer.add_scalar(tag=name, scalar_value=y, global_step=x)
@@ -158,6 +219,13 @@ class Helper:
         else:
             return False
 
+    """
+     Logs training losses and scaling factors to TensorBoard and displays them in the console.
+    Process:
+    1. Uses logger to report losses and scales.
+    2. Plots them to TensorBoard using plot() for visualization.
+    3. Resets running_losses and running_scales for the next logging interval.
+    """
     def report_training_losses_scales(self, batch_id, epoch):
         if not self.params.report_train_loss or \
                 batch_id % self.params.log_interval != 0:
@@ -182,6 +250,13 @@ class Helper:
         self.params.running_losses = defaultdict(list)
         self.params.running_scales = defaultdict(list)
 
+
+    """
+    Purpose: Sets a fixed random seed to ensure results are reproducible.
+    Process:
+    1. Sets seeds for the random, torch, and numpy libraries.
+    2. Configures torch.backends.cudnn for deterministic behavior.
+    """
     @staticmethod
     def fix_random(seed=1):
         from torch.backends import cudnn
