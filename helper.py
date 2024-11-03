@@ -7,25 +7,25 @@ file, enabling flexible experimentation with different tasks and attack types.
 """
 
 
-import importlib
-import logging
-import os
-import random
-from collections import defaultdict
-from copy import deepcopy
-from shutil import copyfile
-from typing import Union
+import importlib                             # Allows dynamic importing of modules (loading modules during runtime).
+import logging                               # Used for logging information, warnings, and errors.
+import os                                    # Provides functions for interacting with the operating system (e.g., file paths).
+import random                                # For generating random numbers.
+from collections import defaultdict          # A dictionary subclass that calls a factory function to supply missing values.
+from copy import deepcopy                    # Creates a deep copy of objects.
+from shutil import copyfile                  # Copies files.
+from typing import Union                     # Used for type hints, indicating that a variable can be one of multiple types.
 
 import numpy as np
 import torch
 import yaml
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter             # For logging information to TensorBoard, a visualization tool.
 
-from attack import Attack
-from synthesizers.synthesizer import Synthesizer
-from tasks.fl.fl_task import FederatedLearningTask
-from tasks.task import Task
-from utils.parameters import Params
+from attack import Attack                                     # The module containing the Attack class.
+from synthesizers.synthesizer import Synthesizer              # Base class for synthesizers used to create backdoor data.
+from tasks.fl.fl_task import FederatedLearningTask            # Contains the FederatedLearningTask class for federated learning tasks.
+from tasks.task import Task                                   # Contains the base Task class for standard tasks.
+from utils.parameters import Params                           # Contains the Params dataclass that holds configuration parameters.
 from utils.utils import create_logger, create_table
 
 logger = logging.getLogger('logger')
@@ -39,34 +39,69 @@ Each attribute in Params corresponds to a specific setting that can be loaded fr
 your mnist_params.yaml, or manually set in code. This class provides default values for many attributes, which means that 
 even if a parameter isn’t explicitly defined in the YAML file, it will take on its default value as specified in Params.
 """
+
+# Defining the Helper Class
+#######################################################################################################################
 class Helper:
-    params: Params = None
+    """
+    An instance of Params,task, synthesizer,and attack which holds all the configuration parameters is first created.
+    Assigning None serves as a placeholder to indicate that the attribute will be assigned a 
+    proper value later, typically during initialization in the __init__ method.
+    """
+    params: Params = None 
     task: Union[Task, FederatedLearningTask] = None
     synthesizer: Synthesizer = None
     attack: Attack = None
     tb_writer: SummaryWriter = None
 
     def __init__(self, params):
-        self.params = Params(**params)
+        """ 
+        Params(**params) Converts the dictionary params into an instance of the Params dataclass.
+        The ** operator unpacks the dictionary, passing its contents as keyword arguments to the Params constructor.
+        *****************************
+        """
+        self.params = Params(**params) 
 
+        """ 
+        Initialization of Time Tracking Dictionaries. These lists will be used to record the 
+        duration of various operations during training, such as forward pass, backward pass, etc.
+        *****************************
+        """ 
         self.times = {'backward': list(), 'forward': list(), 'step': list(),
                       'scales': list(), 'total': list(), 'poison': list()}
-        if self.params.random_seed is not None:
-            self.fix_random(self.params.random_seed)
 
-        self.make_folders()
+        """ 
+        Setting Random Seed for Reproducibility: Ensures that results are reproducible by setting 
+        the random seed if specified in the parameters.
+        *****************************
+        """
+        if self.params.random_seed is not None:
+            self.fix_random(self.params.random_seed) # Calls a method to set the random seed.
+
+        # Creating Necessary Folders
+        self.make_folders() # Sets up directories for logging and saving models.
+       
+        # Initializing the Task: Dynamically loads and initializes the task specified in the parameters (e.g., MNIST classification).
         self.make_task()
+
+        # Initializing the Synthesizer: Sets up the synthesizer used for creating backdoor data based on the specified method.
         self.make_synthesizer()
+        
+        # Initializing the Attack: Creates an Attack instance that will manage attack logic during training.
         self.attack = Attack(self.params, self.synthesizer)
 
+        # Checks if 'neural_cleanse' is among the specified loss tasks and sets a flag accordingly
         if 'neural_cleanse' in self.params.loss_tasks:
             self.nc = True
         # if 'spectral_evasion' in self.params.loss_tasks:
         #     self.attack.fixed_model = deepcopy(self.task.model)
 
+        # Keeps track of the best validation accuracy achieved during training to save the best model.
         self.best_acc = float(0)
 
 
+# Dynamically Loading the Task    
+#######################################################################################################################
     """
     Purpose: Sets up the machine learning task (federated learning or standard training) specified 
     in the configuration. Process:
@@ -75,14 +110,19 @@ class Helper:
     3. After importing, it initializes the task with self.params.
     """
     def make_task(self):
-        name_lower = self.params.task.lower()
-        name_cap = self.params.task
+        # Preparing Module and Class Names: Formats the task name to match module and class naming conventions.
+        name_lower = self.params.task.lower()       # Converts the task name to lowercase (e.g., 'MNIST' becomes 'mnist').
+        name_cap = self.params.task                 #  Keeps the original task name (e.g., 'MNIST').
+        
+        # Decides the module path based on whether federated learning (fl) is enabled.
         if self.params.fl:
             module_name = f'tasks.fl.{name_lower}_task'
             path = f'tasks/fl/{name_lower}_task.py'
         else:
             module_name = f'tasks.{name_lower}_task'
             path = f'tasks/{name_lower}_task.py'
+        
+        # Imports the module that contains the task class. Gets the task class from the module using the formatted class name. Provides a clear error message if the module or class is not found.
         try:
             task_module = importlib.import_module(module_name)
             task_class = getattr(task_module, f'{name_cap}Task')
@@ -91,9 +131,11 @@ class Helper:
                                       f'be defined as a class '
                                       f'{name_cap}'
                                       f'Task in {path}')
-        self.task = task_class(self.params)
+        self.task = task_class(self.params)      # Creates an instance of the task class, passing in the parameters.
 
 
+# Dynamically Loading the Synthesizer   
+#######################################################################################################################
     """
     Purpose: Sets up the backdoor synthesizer to manage malicious input generation.
     Process:
@@ -101,22 +143,30 @@ class Helper:
     2. Initializes the synthesizer class, passing it the task object (either standard or federated learning)
     """
     def make_synthesizer(self):
+        # Formats the synthesizer name to match module and class naming conventions.
         name_lower = self.params.synthesizer.lower()
         name_cap = self.params.synthesizer
         module_name = f'synthesizers.{name_lower}_synthesizer'
+
+        # Imports the module containing the synthesizer class.
         try:
             synthesizer_module = importlib.import_module(module_name)
-            task_class = getattr(synthesizer_module, f'{name_cap}Synthesizer')
+            task_class = getattr(synthesizer_module, f'{name_cap}Synthesizer')  # Gets the synthesizer class from the module.
+       
+        # Provides an informative error message if the module or class is missing.
         except (ModuleNotFoundError, AttributeError):
             raise ModuleNotFoundError(
                 f'The synthesizer: {self.params.synthesizer}'
                 f' should be defined as a class '
                 f'{name_cap}Synthesizer in '
                 f'synthesizers/{name_lower}_synthesizer.py')
+        
+        # Creates an instance of the synthesizer class, passing in the task instance.
         self.synthesizer = task_class(self.task)
 
-
-
+    
+# Creating Necessary Folders
+#######################################################################################################################
     """
     Purpose: Creates directories for logs and saves experiment information.
     Process:
@@ -128,36 +178,41 @@ class Helper:
     If params.tb (TensorBoard) is enabled, initializes SummaryWriter for visualizing model performance.
     """
     def make_folders(self):
-        log = create_logger()
-        if self.params.log:
-            try:
+        log = create_logger()    # Initializes a logger to handle logging messages.
+        if self.params.log:     # Only proceeds to create folders and set up logging if logging is enabled in the parameters.
+            try:                # Attempts to create a directory specified by self.params.folder_path. If the folder already exists, it logs a message instead of crashing.
                 os.mkdir(self.params.folder_path)
             except FileExistsError:
                 log.info('Folder already exists')
 
-            with open('saved_models/runs.html', 'a') as f:
+            # Appends a new entry to runs.html with links to the GitHub commit and the experiment folder.
+            with open('saved_models/runs.html', 'a') as f:        
                 f.writelines([f'<div><a href="https://github.com/ebagdasa/'
                               f'backdoors/tree/{self.params.commit}">GitHub'
                               f'</a>, <span> <a href="http://gpu/'
                               f'{self.params.folder_path}">{self.params.name}_'
                               f'{self.params.current_time}</a></div>'])
 
-            fh = logging.FileHandler(
+            # Adds a file handler to the logger to write log messages to a file named log.txt in the experiment folder.
+            fh = logging.FileHandler(               
                 filename=f'{self.params.folder_path}/log.txt')
             formatter = logging.Formatter('%(asctime)s - %(name)s '
                                           '- %(levelname)s - %(message)s')
             fh.setFormatter(formatter)
             log.addHandler(fh)
 
-            log.warning(f'Logging to: {self.params.folder_path}')
+            # Logs the path where logs are stored and provides a link to the GitHub commit for traceability.
+            log.warning(f'Logging to: {self.params.folder_path}')   
             log.error(
                 f'LINK: <a href="https://github.com/ebagdasa/backdoors/tree/'
                 f'{self.params.commit}">https://github.com/ebagdasa/backdoors'
                 f'/tree/{self.params.commit}</a>')
 
+            # Saves the experiment's parameters to a file for future reference.
             with open(f'{self.params.folder_path}/params.yaml.txt', 'w') as f:
                 yaml.dump(self.params, f)
-
+      
+        # Setting Up TensorBoard Logging
         if self.params.tb:
             wr = SummaryWriter(log_dir=f'runs/{self.params.name}')
             self.tb_writer = wr
@@ -166,6 +221,8 @@ class Helper:
             self.tb_writer.add_text('Model Params', table)
 
 
+# Model Saving Methods
+#######################################################################################################################
     """
     Purpose: Saves the model state at specified intervals or if it achieves a new best accuracy.
     Process:
@@ -258,7 +315,8 @@ class Helper:
         self.params.running_losses = defaultdict(list)
         self.params.running_scales = defaultdict(list)
 
-
+# Setting Random Seed for Reproducibility
+#######################################################################################################################
     """
     Purpose: Sets a fixed random seed to ensure results are reproducible.
     Process:
@@ -270,12 +328,12 @@ class Helper:
         from torch.backends import cudnn
 
         logger.warning('Setting random_seed seed for reproducible results.')
-        random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
+        random.seed(seed) # Sets the seed for Python's built-in random module.
+        torch.manual_seed(seed) # torch.manual_seed(seed): 
+        torch.cuda.manual_seed_all(seed) # Sets the seed for all CUDA devices (GPUs).
         cudnn.deterministic = False
         cudnn.enabled = True
         cudnn.benchmark = True
-        np.random.seed(seed)
+        np.random.seed(seed) # Sets the seed for NumPy's RNG.
 
         return True
