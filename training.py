@@ -27,11 +27,25 @@ from utils.utils import *
 
 logger = logging.getLogger('logger')
 
-
+# Training Function (train)    
+#######################################################################################################################
 def train(hlpr: Helper, epoch, model, optimizer, train_loader, attack=True):
     criterion = hlpr.task.criterion
-    model.train()
-
+    model.train() # Puts the model into training mode
+    """
+    tqdm: A progress bar library to visualize the loop progress in the console.
+    ** enumerate(train_loader): Provides both the batch index i and the batch data data.
+    ** batch = hlpr.task.get_batch(i, data): Retrieves and processes the batch data.
+    ** model.zero_grad() : Clears the gradients of all optimized tensors to prevent accumulation from previous iterations.
+    ** loss = hlpr.attack.compute_blind_loss(model, criterion, batch, attack) : Calculates the loss for the current batch.
+    ** hlpr.attack.compute_blind_loss: Handles Attack Logic: Incorporates backdoor attack mechanisms if attack is True.
+    ** hlpr.report_training_losses_scales(i, epoch) : Logs training losses and scaling factors for analysis and debugging.
+    ** loss.backward() : Computes the gradient of the loss with respect to the model parameters
+    ** optimizer.step() : Updates the model parameters based on the computed gradients.
+    ** hlpr.report_training_losses_scales(i, epoch) : Logs training losses and scaling factors for analysis and debugging.
+    ** if i == hlpr.params.max_batch_id break:  Allows for early stopping after a certain number of batches, as defined by max_batch_id in the parameters.
+            Use Case: Useful for debugging or when you don't want to process the entire dataset in each epoch.
+    """
     for i, data in tqdm(enumerate(train_loader)):
         batch = hlpr.task.get_batch(i, data)
         model.zero_grad()
@@ -45,7 +59,17 @@ def train(hlpr: Helper, epoch, model, optimizer, train_loader, attack=True):
 
     return
 
-
+# Testing Function (test)
+#######################################################################################################################
+# The test function evaluates the model's performance on the test dataset.
+"""
+Key Points
+Model Evaluation Mode: model.eval() sets the model to evaluation mode, which affects layers like dropout and batch normalization.
+No Gradient Computation: with torch.no_grad() disables gradient calculation, reducing memory consumption and computational overhead during evaluation.
+Backdoor Testing: If backdoor=True, the test data is modified to include backdoor triggers.
+Metric Accumulation: hlpr.task.accumulate_metrics collects performance metrics for reporting.
+Metric Reporting: hlpr.task.report_metrics logs the metrics to the console and TensorBoard.
+"""
 def test(hlpr: Helper, epoch, backdoor=False):
     model = hlpr.task.model
     model.eval()
@@ -69,31 +93,73 @@ def test(hlpr: Helper, epoch, backdoor=False):
     return metric
 
 
+# Standard Training Loop (run function)  
+#######################################################################################################################
+
 def run(hlpr):
+    # Initial Testing Before Training. Evaluates the model's performance on the test dataset before any training has occurred. This provides a baseline accuracy.
     acc = test(hlpr, 0, backdoor=False)
+    """
+    Iterates over the specified number of epochs (start_epoch to epochs).
+    ** train(hlpr, epoch, hlpr.task.model, hlpr.task.optimizer, hlpr.task.train_loader)
+    Calls the train function to train the model for one epoch.
+    Parameters:
+    hlpr: The Helper instance containing configurations and utilities.
+    epoch: The current epoch number.
+    hlpr.task.model: The model to be trained.
+    hlpr.task.optimizer: The optimizer used to update model parameters.
+    hlpr.task.train_loader: The data loader for the training dataset.
+    
+    ** acc = test(hlpr, epoch, backdoor=False)
+    Purpose: Evaluates the model on the test dataset without any backdoor attacks to assess its performance on clean data.
+    Updates acc: The returned accuracy is stored in acc for potential model saving decisions.
+
+    ** test(hlpr, epoch, backdoor=True)
+    Evaluates the model on the test dataset with backdoor triggers to assess its susceptibility to backdoor attacks.
+
+    ** hlpr.save_model(hlpr.task.model, epoch, acc)
+    Saves the model checkpoint, including model state and metadata.
+    The model is saved every epoch.
+    If the current accuracy acc is higher than the best accuracy so far, the model is saved as the best model.
+
+    ** if hlpr.task.scheduler is not None:
+        hlpr.task.scheduler.step(epoch)
+    Adjusts the learning rate according to the scheduler (if one is defined) to improve training convergence.
+    """
     for epoch in range(hlpr.params.start_epoch,
                        hlpr.params.epochs + 1):
         train(hlpr, epoch, hlpr.task.model, hlpr.task.optimizer,
               hlpr.task.train_loader)
         acc = test(hlpr, epoch, backdoor=False)
-        test(hlpr, epoch, backdoor=True)
+        test(hlpr, epoch, backdoor=True) 
         hlpr.save_model(hlpr.task.model, epoch, acc)
         if hlpr.task.scheduler is not None:
             hlpr.task.scheduler.step(epoch)
 
+
+# Federated Learning Execution (fl_run function)
+#######################################################################################################################
+"""
+** run_fl_round(hlpr, epoch) : Executes a single round of federated learning, where multiple clients train locally and their updates are aggregated.
+** metric = test(hlpr, epoch, backdoor=False)
+    test(hlpr, epoch, backdoor=True)
+Evaluates the updated global model on clean and backdoor data.
+
+"""
+
 def fl_run(hlpr: Helper):
     for epoch in range(hlpr.params.start_epoch,
                        hlpr.params.epochs + 1):
-        run_fl_round(hlpr, epoch)
-        metric = test(hlpr, epoch, backdoor=False)
+        run_fl_round(hlpr, epoch) # Executes a single round of federated learning
+        metric = test(hlpr, epoch, backdoor=False) # Evaluates the updated global model on clean and backdoor data.
         test(hlpr, epoch, backdoor=True)
 
-        hlpr.save_model(hlpr.task.model, epoch, metric)
+        hlpr.save_model(hlpr.task.model, epoch, metric) # Saves the global model checkpoint.
 
 
 def run_fl_round(hlpr, epoch):
-    global_model = hlpr.task.model
-    local_model = hlpr.task.local_model
+    global_model = hlpr.task.model        # The shared model that is updated each round.
+    local_model = hlpr.task.local_model   # A copy of the global model used for local training on each client.
 
     round_participants = hlpr.task.sample_users_for_round(epoch)
     weight_accumulator = hlpr.task.get_empty_accumulator()
@@ -168,7 +234,7 @@ Essence: This line captures the command-line arguments into the args object, mak
 
 """
 ############################################################################################################################
-# CODE
+# CODE (Entry Point of the Program)
 ############################################################################################################################
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Backdoors')
@@ -241,8 +307,9 @@ if __name__ == '__main__':
     """
     helper = Helper(params)
     logger.warning(create_table(params))
+
 ############################################################################################################################
-# The code checks to see if fl is set to true so that it runs federated Learning, else it runs centralized learning
+# Running the Training Loop. The code checks to see if fl is set to true so that it runs federated Learning, else it runs centralized learning
 ############################################################################################################################
 
     """
