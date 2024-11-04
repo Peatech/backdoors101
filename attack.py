@@ -40,9 +40,9 @@ class Attack:
         :param attack: Do not attack at all. Ignore all the parameters
         :return:
         """
-        batch = batch.clip(self.params.clip_batch)
-        loss_tasks = self.params.loss_tasks.copy() if attack else ['normal']
-        batch_back = self.synthesizer.make_backdoor_batch(batch, attack=attack)
+        batch = batch.clip(self.params.clip_batch)                                   # Optionally clips the batch to specified bounds for stability.
+        loss_tasks = self.params.loss_tasks.copy() if attack else ['normal']         # If attack is True, includes additional loss tasks specified in self.params.loss_tasks (e.g., backdoor loss).
+        batch_back = self.synthesizer.make_backdoor_batch(batch, attack=attack)      # Generates a batch with backdoor triggers if attack is True.
         scale = dict()
 
         if 'neural_cleanse' in loss_tasks:
@@ -58,7 +58,7 @@ class Attack:
                 self, model, criterion, batch, batch_back, compute_grad=False
             )
         elif self.params.loss_balance == 'MGDA':
-
+            # Calculates the loss values for each task.
             loss_values, grads = compute_all_losses_and_grads(
                 loss_tasks,
                 self, model, criterion, batch, batch_back, compute_grad=True)
@@ -75,15 +75,15 @@ class Attack:
                 scale[t] = self.params.fixed_scales[t]
         else:
             raise ValueError(f'Please choose between `MGDA` and `fixed`.')
-
+        # Determines scaling factors for each loss component.
         if len(loss_tasks) == 1:
             scale = {loss_tasks[0]: 1.0}
         self.loss_hist.append(loss_values['normal'].item())
         self.loss_hist = self.loss_hist[-1000:]
-        blind_loss = self.scale_losses(loss_tasks, loss_values, scale)
+        blind_loss = self.scale_losses(loss_tasks, loss_values, scale)    #Aggregates the scaled losses into a single loss value for optimization.
 
         return blind_loss
-
+    # Keeps track of individual and total losses for logging.
     def scale_losses(self, loss_tasks, loss_values, scale):
         blind_loss = 0
         for it, t in enumerate(loss_tasks):
