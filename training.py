@@ -156,30 +156,37 @@ def fl_run(hlpr: Helper):
 
         hlpr.save_model(hlpr.task.model, epoch, metric) # Saves the global model checkpoint.
 
-
 def run_fl_round(hlpr, epoch):
     global_model = hlpr.task.model        # The shared model that is updated each round.
     local_model = hlpr.task.local_model   # A copy of the global model used for local training on each client.
 
-    round_participants = hlpr.task.sample_users_for_round(epoch)
-    weight_accumulator = hlpr.task.get_empty_accumulator()
+    round_participants = hlpr.task.sample_users_for_round(epoch)  # Selects a subset of clients (users) to participate in the current round.
+    weight_accumulator = hlpr.task.get_empty_accumulator()        #  An empty data structure used to accumulate local model updates from participants.
 
+    # Loops over each selected participant to perform local training and collect updates.
     for user in tqdm(round_participants):
-        hlpr.task.copy_params(global_model, local_model)
-        optimizer = hlpr.task.make_optimizer(local_model)
+        hlpr.task.copy_params(global_model, local_model)        # Ensures that each participant starts with the latest global model parameters.
+        optimizer = hlpr.task.make_optimizer(local_model)       # Sets up an optimizer for the local model on the participant's device.
+        
+        # Trains the local model on the participant's data for a specified number of local epochs.
+        # If the user is compromised, the train function is called with attack=True, simulating backdoor attacks during local training.
         for local_epoch in range(hlpr.params.fl_local_epochs):
-            if user.compromised:
+            if user.compromised:                        
                 train(hlpr, local_epoch, local_model, optimizer,
                       user.train_loader, attack=True)
             else:
                 train(hlpr, local_epoch, local_model, optimizer,
                       user.train_loader, attack=False)
+                
+        # Calculates the difference between the updated local model and the global model.
         local_update = hlpr.task.get_fl_update(local_model, global_model)
+       
+        # Modifies the local update from compromised users to amplify the impact of the attack.
         if user.compromised:
             hlpr.attack.fl_scale_update(local_update)
-        hlpr.task.accumulate_weights(weight_accumulator, local_update)
+        hlpr.task.accumulate_weights(weight_accumulator, local_update)     # Adds the local update to the weight accumulator.
 
-    hlpr.task.update_global_model(weight_accumulator, global_model)
+    hlpr.task.update_global_model(weight_accumulator, global_model)       # Updates the global model by applying the aggregated updates from all participants.
 
 
 ############################################################################################################################
