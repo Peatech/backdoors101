@@ -39,6 +39,7 @@ class FederatedLearningTask(Task):
             weight_accumulator[name] = torch.zeros_like(data)
         return weight_accumulator
 
+    # This function samples participants for each round and checks if they are compromised (potential adversaries) using check_user_compromised.
     def sample_users_for_round(self, epoch) -> List[FLUser]:
         sampled_ids = random.sample(
             range(self.params.fl_total_participants),
@@ -53,6 +54,7 @@ class FederatedLearningTask(Task):
 
         return sampled_users
 
+    # This function identifies compromised users for a single attack epoch or across multiple epochs
     def check_user_compromised(self, epoch, pos, user_id):
         """Check if the sampled user is compromised for the attack.
 
@@ -113,12 +115,18 @@ class FederatedLearningTask(Task):
 
         return local_update
 
+    # This function gathers model updates from each user and adds them to a central weight_accumulator.
     def accumulate_weights(self, weight_accumulator, local_update):
         update_norm = self.get_update_norm(local_update)
         for name, value in local_update.items():
             self.dp_clip(value, update_norm)
             weight_accumulator[name].add_(value)
-
+    """
+    This function takes accumulated updates, averages them, and applies them to the global_model.
+    In model replacement, attackers scale their update to dominate this aggregation. By 
+    adjusting fl_eta and weight_scale, as done in attack.py, attackers can use this function 
+    for replacement attacks by dominating the aggregated update.
+    """
     def update_global_model(self, weight_accumulator, global_model: Module):
         for name, sum_update in weight_accumulator.items():
             if self.check_ignored_weights(name):
@@ -129,12 +137,14 @@ class FederatedLearningTask(Task):
             model_weight = global_model.state_dict()[name]
             model_weight.add_(average_update)
 
+    # Clips updates exceeding a predefined norm
     def dp_clip(self, local_update_tensor: torch.Tensor, update_norm):
         if self.params.fl_diff_privacy and \
                 update_norm > self.params.fl_dp_clip:
             norm_scale = self.params.fl_dp_clip / update_norm
             local_update_tensor.mul_(norm_scale)
 
+    # Adds Gaussian noise to updates
     def dp_add_noise(self, sum_update_tensor: torch.Tensor):
         if self.params.fl_diff_privacy:
             noised_layer = torch.FloatTensor(sum_update_tensor.shape)
