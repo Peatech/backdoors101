@@ -178,13 +178,13 @@ def run_fl_round(hlpr, epoch):
                 train(hlpr, local_epoch, local_model, optimizer,
                       user.train_loader, attack=False)
                 
-        # Calculates the difference between the updated local model and the global model.
+        # Calculates the difference between the updated local model and the global model. The fuction get_fl_update is contained in fl_task.py in tasks/fl folder 
         local_update = hlpr.task.get_fl_update(local_model, global_model)
        
         # Modifies the local update from compromised users to amplify the impact of the attack.
         if user.compromised:
             hlpr.attack.fl_scale_update(local_update)
-        hlpr.task.accumulate_weights(weight_accumulator, local_update)     # Adds the local update to the weight accumulator.
+        hlpr.task.accumulate_weights(weight_accumulator, local_update)     # Aggregates the local update to the weight accumulator.
 
     hlpr.task.update_global_model(weight_accumulator, global_model)       # Updates the global model by applying the aggregated updates from all participants.
 
