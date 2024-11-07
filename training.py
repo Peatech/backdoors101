@@ -313,6 +313,7 @@ if __name__ == '__main__':
     run. 
     """
     helper = Helper(params)
+    # After loading the configuration, the script logs all the parameters in the params dictionary using create_table() and prints it out in human readable form
     logger.warning(create_table(params))
 
 ############################################################################################################################
