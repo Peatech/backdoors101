@@ -53,7 +53,7 @@ class Params:
     # attack params
     backdoor: bool = True
     backdoor_label: int = 8
-    poisoning_proportion: float = 1.0  # backdoors proportion in backdoor loss
+    poisoning_proportion: float = 0.1  # backdoors proportion in backdoor loss
     synthesizer: str = 'pattern'
     backdoor_dynamic_position: bool = False
 
