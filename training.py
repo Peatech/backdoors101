@@ -1,16 +1,3 @@
-"""
-This training.py script is designed to perform training, testing, and federated learning (FL) 
-for a machine learning model, potentially under adversarial conditions (e.g., backdoor attacks). 
-Key Elements:
-Helper: A central class that orchestrates various tasks like model training, logging, and handling attacks.
-Backdoor Attack Simulation: The attack argument in train() and backdoor argument in test() allow for simulating adversarial conditions (e.g., backdoor attacks) on the dataset.
-Federated Learning: The code has a dedicated flow for FL, where local models are trained on user data and their updates are aggregated to form a global model.
-Workflow:
-Setup: Load configuration, initialize Helper, create directories for logs.
-Training: Depending on whether federated learning is enabled, either standard training (run) or FL (fl_run) is performed.
-Testing: After each training epoch, the model is evaluated on the test data, potentially simulating attacks.
-Logging and Saving: The results are logged to TensorBoard and saved periodically. If interrupted, the user is given a chance to delete the generated files.
-"""
 
 import argparse
 import shutil
@@ -99,33 +86,6 @@ def test(hlpr: Helper, epoch, backdoor=False):
 def run(hlpr):
     # Initial Testing Before Training. Evaluates the model's performance on the test dataset before any training has occurred. This provides a baseline accuracy.
     acc = test(hlpr, 0, backdoor=False)
-    """
-    Iterates over the specified number of epochs (start_epoch to epochs).
-    ** train(hlpr, epoch, hlpr.task.model, hlpr.task.optimizer, hlpr.task.train_loader)
-    Calls the train function to train the model for one epoch.
-    Parameters:
-    hlpr: The Helper instance containing configurations and utilities.
-    epoch: The current epoch number.
-    hlpr.task.model: The model to be trained.
-    hlpr.task.optimizer: The optimizer used to update model parameters.
-    hlpr.task.train_loader: The data loader for the training dataset.
-    
-    ** acc = test(hlpr, epoch, backdoor=False)
-    Purpose: Evaluates the model on the test dataset without any backdoor attacks to assess its performance on clean data.
-    Updates acc: The returned accuracy is stored in acc for potential model saving decisions.
-
-    ** test(hlpr, epoch, backdoor=True)
-    Evaluates the model on the test dataset with backdoor triggers to assess its susceptibility to backdoor attacks.
-
-    ** hlpr.save_model(hlpr.task.model, epoch, acc)
-    Saves the model checkpoint, including model state and metadata.
-    The model is saved every epoch.
-    If the current accuracy acc is higher than the best accuracy so far, the model is saved as the best model.
-
-    ** if hlpr.task.scheduler is not None:
-        hlpr.task.scheduler.step(epoch)
-    Adjusts the learning rate according to the scheduler (if one is defined) to improve training convergence.
-    """
     for epoch in range(hlpr.params.start_epoch,
                        hlpr.params.epochs + 1):
         train(hlpr, epoch, hlpr.task.model, hlpr.task.optimizer,
@@ -139,13 +99,6 @@ def run(hlpr):
 
 # Federated Learning Execution (fl_run function)
 #######################################################################################################################
-"""
-** run_fl_round(hlpr, epoch) : Executes a single round of federated learning, where multiple clients train locally and their updates are aggregated.
-** metric = test(hlpr, epoch, backdoor=False)
-    test(hlpr, epoch, backdoor=True)
-Evaluates the updated global model on clean and backdoor data.
-
-"""
 
 def fl_run(hlpr: Helper):
     for epoch in range(hlpr.params.start_epoch,
@@ -192,57 +145,6 @@ def run_fl_round(hlpr, epoch):
 ############################################################################################################################
 # The main code execution starts here by defining the argparse 
 ############################################################################################################################
-"""
-The argparse library is used to handle command-line arguments.
---params specifies the YAML file with training parameters.
---name is the dataset or experiment name.
---commit is a unique identifier (here it defaults to none).
-
-The purpose of this code block is to set up and handle command-line arguments for training.py. Each line is essential for configuring and customizing the training run without needing to modify the code itself. Here’s a step-by-step breakdown of what each line does and why it’s important:
-
-Line 1: parser = argparse.ArgumentParser(description='Backdoors')
-Purpose: This line initializes an ArgumentParser object, parser, from Python's argparse library.
-Function: ArgumentParser allows the program to accept parameters from the command line, which lets users control the script's behavior by passing specific arguments when they run the program.
-Description: The string 'Backdoors' is provided as a description. This appears in the help message when a user runs the script with --help. It helps users understand the purpose of the script.
-Line 2-4: parser.add_argument(...)
-Each add_argument() line defines a command-line argument that the script can accept. Here’s what each does:
-
-parser.add_argument('--params', dest='params', default='utils/params.yaml')
-
-Argument: --params
-Users can specify a configuration file using --params, which points to a .yaml file that stores all training parameters.
-Destination: dest='params'
-This argument will be accessible in the code as args.params, allowing the script to load and use the specified configuration file.
-Default Value: default='utils/params.yaml'
-If a user does not specify a --params argument, the script will default to utils/params.yaml.
-Essence: This argument gives users flexibility to specify different configurations, making the script adaptable for various experiments without hardcoding parameters.
-parser.add_argument('--name', dest='name', required=True)
-
-Argument: --name
-Users specify a name for the experiment with --name.
-Destination: dest='name'
-This argument is stored as args.name, allowing the script to access the name later in the code.
-Required: required=True
-This argument must be provided; otherwise, the script will raise an error and won’t run.
-Essence: --name provides a unique identifier for the experiment, which is useful for logging, model saving, and tracking purposes. In this code, it is especially important since the experiment's results may be logged in multiple places.
-parser.add_argument('--commit', dest='commit', default=get_current_git_hash())
-
-Argument: --commit
-Users can specify a unique commit identifier, which is particularly useful for version control.
-Destination: dest='commit'
-This argument is stored as args.commit.
-Default Value: default=get_current_git_hash()
-If a user doesn’t specify this argument, it defaults to the result of get_current_git_hash().
-get_current_git_hash() is likely a function that retrieves the latest Git commit hash for the project, allowing users to record the exact version of the code used in an experiment.
-Essence: By logging the Git commit hash, the script provides traceability, enabling users to reproduce results with the same code version, which is essential for experiment tracking.
-Line 5: args = parser.parse_args()
-Purpose: parse_args() processes the command-line arguments and returns them as an object, args, where each argument is accessible by its destination name (e.g., args.params, args.name, and args.commit).
-Essence: This line captures the command-line arguments into the args object, making the argument values accessible throughout the rest of the script.
-
-"""
-############################################################################################################################
-# CODE (Entry Point of the Program)
-############################################################################################################################
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Backdoors')
     parser.add_argument('--params', dest='params', default='utils/params.yaml')
@@ -251,44 +153,6 @@ if __name__ == '__main__':
                         default=get_current_git_hash())
 
     args = parser.parse_args()
-
-############################################################################################################################
-# After defining the argparse, the yaml configuration file is opened and the simulation configuration is loaded to params
-############################################################################################################################
-    """
-            with open(args.params) as f:
-    Purpose: Opens the YAML file specified by args.params (e.g., configs/mnist_params.yaml).
-    Details:
-    args.params holds the file path provided by the user through the command-line argument --params.
-    Using with open(...) as f: ensures that the file is automatically closed after the block of code completes, which is 
-    good practice to prevent resource leaks.
-            params = yaml.load(f, Loader=yaml.FullLoader)
-    Purpose: Reads the contents of the YAML file and converts it into a Python dictionary called params.
-    Details:
-    yaml.load(f, Loader=yaml.FullLoader) reads the YAML file content from f and loads it into the params variable.
-            Why Loader=yaml.FullLoader:
-    The FullLoader is a safer option compared to the default loader and ensures that only standard YAML types are loaded 
-    (e.g., dictionaries, lists, strings, numbers), which mitigates security risks.
-    The result is a dictionary structure (params) where each key-value pair corresponds to entries in the YAML file.
-    The YAML file specified by --params is loaded into the params dictionary, which will configure the entire 
-    training, testing, and attack procedures.
-    The result is a dictionary structure (params) where each key-value pair corresponds to entries in the YAML file.
-    For example, if configs/mnist_params.yaml contains:
-        task: MNIST
-        batch_size: 64
-        lr: 0.01
-        epochs: 10
-    Then params would be:
-        {
-            "task": "MNIST",
-            "batch_size": 64,
-            "lr": 0.01,
-            "epochs": 10
-        }
-    """
-############################################################################################################################
-# CODE 
-############################################################################################################################
 
     with open(args.params) as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
@@ -301,17 +165,6 @@ if __name__ == '__main__':
     params['commit'] = args.commit
     params['name'] = args.name
 
-############################################################################################################################
-# A helper class instance is created for managing data data loading, logging, attack simulation, model saving, and federated learning tasks
-############################################################################################################################
-
-    """
-    Helper Initialization: Helper is a central class that manages data loading, logging, attack simulation, model 
-    saving, and federated learning tasks. helper is initialized with params, which configures all the settings for 
-    the training session. When Helper is initialized, it stores params as self.params, making it accessible as helper.params.
-    Log Parameter Table: This line logs a table of the parameters, helping track the configuration for this specific 
-    run. 
-    """
     helper = Helper(params)
     # After loading the configuration, the script logs all the parameters in the params dictionary using create_table() and prints it out in human readable form
     logger.warning(create_table(params))
