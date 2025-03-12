@@ -20,15 +20,6 @@ def train(hlpr: Helper, epoch, model, optimizer, train_loader, attack=True):
     criterion = hlpr.task.criterion
     model.train() # Puts the model into training mode
     """
-    tqdm: A progress bar library to visualize the loop progress in the console.
-    ** enumerate(train_loader): Provides both the batch index i and the batch data data.
-    ** batch = hlpr.task.get_batch(i, data): Retrieves and processes the batch data.
-    ** model.zero_grad() : Clears the gradients of all optimized tensors to prevent accumulation from previous iterations.
-    ** loss = hlpr.attack.compute_blind_loss(model, criterion, batch, attack) : Calculates the loss for the current batch.
-    ** hlpr.attack.compute_blind_loss: Handles Attack Logic: Incorporates backdoor attack mechanisms if attack is True.
-    ** hlpr.report_training_losses_scales(i, epoch) : Logs training losses and scaling factors for analysis and debugging.
-    ** loss.backward() : Computes the gradient of the loss with respect to the model parameters
-    ** optimizer.step() : Updates the model parameters based on the computed gradients.
     ** hlpr.report_training_losses_scales(i, epoch) : Logs training losses and scaling factors for analysis and debugging.
     ** if i == hlpr.params.max_batch_id break:  Allows for early stopping after a certain number of batches, as defined by max_batch_id in the parameters.
             Use Case: Useful for debugging or when you don't want to process the entire dataset in each epoch.
@@ -49,14 +40,6 @@ def train(hlpr: Helper, epoch, model, optimizer, train_loader, attack=True):
 # Testing Function (test)
 #######################################################################################################################
 # The test function evaluates the model's performance on the test dataset.
-"""
-Key Points
-Model Evaluation Mode: model.eval() sets the model to evaluation mode, which affects layers like dropout and batch normalization.
-No Gradient Computation: with torch.no_grad() disables gradient calculation, reducing memory consumption and computational overhead during evaluation.
-Backdoor Testing: If backdoor=True, the test data is modified to include backdoor triggers.
-Metric Accumulation: hlpr.task.accumulate_metrics collects performance metrics for reporting.
-Metric Reporting: hlpr.task.report_metrics logs the metrics to the console and TensorBoard.
-"""
 def test(hlpr: Helper, epoch, backdoor=False):
     model = hlpr.task.model
     model.eval()
