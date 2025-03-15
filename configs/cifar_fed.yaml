@@ -20,7 +20,7 @@ poisoning_proportion: 0.1
 backdoor_label: 8
 
 #resume_model: model_CifarFed_Nov.26_20.32.44_no_attack_fl/model
-
+loss_threshold: 0.5
 loss_balance: MGDA
 mgda_normalize: none
 
