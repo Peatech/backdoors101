@@ -171,6 +171,13 @@ class MGDASolver:
         # Solution lying at the combination of two points
         dps = {}
         init_sol, dps = MGDASolver._min_norm_2d(vecs, dps)
+        print(f"🛑 DEBUG: _min_norm_2d() returned {init_sol}")
+        print(f"🛑 DEBUG: vecs had {len(vecs)} elements.")
+
+        # 🛠️ Fix: Ensure init_sol is valid before using it
+        if not isinstance(init_sol, tuple) or len(init_sol) != 3:
+            print("⚠️ WARNING: _min_norm_2d() returned an invalid result. Defaulting to equal weights.")
+            return np.ones(len(vecs)) / len(vecs), 1.0  # Return equal scaling factors
 
         n = len(vecs)
         sol_vec = np.zeros(n)
