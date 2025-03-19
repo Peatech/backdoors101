@@ -135,21 +135,23 @@ class Attack:
         nc_tasks = ['neural_cleanse_part1', 'mask_norm']
 
         criterion = torch.nn.CrossEntropyLoss(reduction='none')
-
-        loss_values, grads = compute_all_losses_and_grads(nc_tasks,
-                                                          self, model,
-                                                          criterion, batch,
-                                                          batch_back,
-                                                          compute_grad=False
-                                                          )
-        # Using NC paper params
-        logger.info(loss_values)
-        loss = 0.999 * loss_values['neural_cleanse_part1'] + 0.001 * loss_values['mask_norm']
-        loss.backward()
-        self.nc_optim.step()
-
-        self.nc_model.switch_grads(False)
-        model.switch_grads(True)
+       
+        # Increase this iteration count (default is too low)
+        for epoch in range(10):  # 🔴 Change this value
+            loss_values, grads = compute_all_losses_and_grads(nc_tasks,
+                                                              self, model,
+                                                              criterion, batch,
+                                                              batch_back,
+                                                              compute_grad=False
+                                                              )
+            # Using NC paper params
+            logger.info(loss_values)
+            loss = 0.999 * loss_values['neural_cleanse_part1'] + 0.001 * loss_values['mask_norm']
+            loss.backward()
+            self.nc_optim.step()
+    
+            self.nc_model.switch_grads(False)
+            model.switch_grads(True)
 
 
     def fl_scale_update(self, local_update: Dict[str, torch.Tensor]):
