@@ -51,7 +51,7 @@ class Attack:
         scale = dict()
 
         # 🔍 Debug: Check if batch processing is correct
-        print(f"🛠️ DEBUG: Running compute_blind_loss() | Attack: {attack} | Loss Tasks: {loss_tasks}")
+        #print(f"🛠️ DEBUG: Running compute_blind_loss() | Attack: {attack} | Loss Tasks: {loss_tasks}")
 
 
         if 'neural_cleanse' in loss_tasks:
