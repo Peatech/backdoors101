@@ -74,7 +74,7 @@ def fl_run(hlpr: Helper):
         model_template = hlpr.task.model,
         root_dataset   = hlpr.task.train_loader.dataset,
         ref_size       = 32,              # size of your reference set
-        layer     = 'fc1',           # penultimate layer
+        layer     = 'layer4',           # penultimate layer
         device         = hlpr.params.device,
         discard_ratio  = 0.5
     )
