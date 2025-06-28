@@ -101,9 +101,9 @@ class Params:
     running_scales = None
 
     # FL params
-    fl: bool = False
+    fl: bool = True
     fl_no_models: int = 100
-    fl_local_epochs: int = 2
+    fl_local_epochs: int = 3
     fl_total_participants: int = 80000
     fl_eta: int = 1
     fl_sample_dirichlet: bool = False
@@ -112,9 +112,9 @@ class Params:
     fl_dp_clip: float = None
     fl_dp_noise: float = None
     # FL attack details. Set no adversaries to perform the attack:
-    fl_number_of_adversaries: int = 0
+    fl_number_of_adversaries: int = 10
     fl_single_epoch_attack: int = None
-    fl_weight_scale: int = 1
+    fl_weight_scale: int = 100
 
     def __post_init__(self):
         # enable logging anyways when saving statistics
