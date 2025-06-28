@@ -87,7 +87,7 @@ def fl_run(hlpr: Helper):
 
         hlpr.save_model(hlpr.task.model, epoch, metric)
 
-def run_fl_round(hlpr, epoch):
+def run_fl_round(hlpr, epoch, cka_helper):
     global_model = hlpr.task.model
     local_model  = hlpr.task.local_model
     round_participants = hlpr.task.sample_users_for_round(epoch)
