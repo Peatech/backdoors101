@@ -138,7 +138,7 @@ def run_fl_round(hlpr, epoch):
     # ─────────────────────────────────────────────────────────
 
     # ─── CKA defence & heat-map (after collecting all updates) ─
-    keep_idx, _, _, sim = hlpr.cka.filter_and_aggregate(locals_w)
+    keep_idx, _, _, sim = cka_helper.filter_and_aggregate(locals_w)
 
     import seaborn as sns, matplotlib.pyplot as plt
     plt.figure(figsize=(5,5))
