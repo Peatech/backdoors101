@@ -68,12 +68,20 @@ def run(hlpr):
             hlpr.task.scheduler.step(epoch)
 
 def fl_run(hlpr: Helper):
-    root_loader = hlpr.task.reference_loader
-    hlpr.cka = FedAvgCKA(model_template=hlpr.task.model,
-                         root_loader=root_loader,
-                         layer='fc1',
-                         device=hlpr.params.device,
-                         drop=0.5)
+    full_train_ds = hlpr.task.train_loader.dataset
+    root_idx = random.sample(range(len(full_train_ds)), 32)
+    reference_loader = DataLoader(
+        Subset(full_train_ds, root_idx),
+        batch_size=32,
+        shuffle=False
+    )
+    cka_helper = FedAvgCKA(
+        model_template=hlpr.task.model,
+        root_loader=reference_loader,
+        layer='fc1',
+        device=hlpr.params.device,
+        drop=0.5
+    )
     for epoch in range(hlpr.params.start_epoch,
                        hlpr.params.epochs + 1):
         run_fl_round(hlpr, epoch)
