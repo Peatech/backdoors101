@@ -17,7 +17,7 @@ class FedAvgCKA:
                  root_loader: DataLoader = None,
                  root_dataset: torch.utils.data.Dataset = None,
                  ref_size: int = 32,
-                 layer: str = 'fc1',
+                 layer: str = 'layer4',
                  device: torch.device = torch.device('cpu'),
                  discard_ratio: float = 0.5):
         """
