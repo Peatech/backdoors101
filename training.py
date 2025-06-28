@@ -81,7 +81,7 @@ def fl_run(hlpr: Helper):
 
     for epoch in range(hlpr.params.start_epoch,
                        hlpr.params.epochs + 1):
-        run_fl_round(hlpr, epoch)
+        run_fl_round(hlpr, epoch, cka_helper)
         metric = test(hlpr, epoch, backdoor=False)
         test(hlpr, epoch, backdoor=True)
 
