@@ -1,4 +1,3 @@
-
 import argparse
 import shutil
 from datetime import datetime
@@ -14,16 +13,11 @@ from utils.utils import *
 
 logger = logging.getLogger('logger')
 
-# Training Function (train)    
-#######################################################################################################################
+
 def train(hlpr: Helper, epoch, model, optimizer, train_loader, attack=True):
     criterion = hlpr.task.criterion
-    model.train() # Puts the model into training mode
-    """
-    ** hlpr.report_training_losses_scales(i, epoch) : Logs training losses and scaling factors for analysis and debugging.
-    ** if i == hlpr.params.max_batch_id break:  Allows for early stopping after a certain number of batches, as defined by max_batch_id in the parameters.
-            Use Case: Useful for debugging or when you don't want to process the entire dataset in each epoch.
-    """
+    model.train()
+
     for i, data in tqdm(enumerate(train_loader)):
         batch = hlpr.task.get_batch(i, data)
         model.zero_grad()
@@ -37,9 +31,7 @@ def train(hlpr: Helper, epoch, model, optimizer, train_loader, attack=True):
 
     return
 
-# Testing Function (test)
-#######################################################################################################################
-# The test function evaluates the model's performance on the test dataset.
+
 def test(hlpr: Helper, epoch, backdoor=False):
     model = hlpr.task.model
     model.eval()
@@ -63,71 +55,53 @@ def test(hlpr: Helper, epoch, backdoor=False):
     return metric
 
 
-# Standard Training Loop (run function)  
-#######################################################################################################################
-
 def run(hlpr):
-    # Initial Testing Before Training. Evaluates the model's performance on the test dataset before any training has occurred. This provides a baseline accuracy.
     acc = test(hlpr, 0, backdoor=False)
     for epoch in range(hlpr.params.start_epoch,
                        hlpr.params.epochs + 1):
         train(hlpr, epoch, hlpr.task.model, hlpr.task.optimizer,
               hlpr.task.train_loader)
         acc = test(hlpr, epoch, backdoor=False)
-        test(hlpr, epoch, backdoor=True) 
+        test(hlpr, epoch, backdoor=True)
         hlpr.save_model(hlpr.task.model, epoch, acc)
         if hlpr.task.scheduler is not None:
             hlpr.task.scheduler.step(epoch)
 
-
-# Federated Learning Execution (fl_run function)
-#######################################################################################################################
-
 def fl_run(hlpr: Helper):
     for epoch in range(hlpr.params.start_epoch,
                        hlpr.params.epochs + 1):
-        run_fl_round(hlpr, epoch) # Executes a single round of federated learning
-        metric = test(hlpr, epoch, backdoor=False) # Evaluates the updated global model on clean and backdoor data.
+        run_fl_round(hlpr, epoch)
+        metric = test(hlpr, epoch, backdoor=False)
         test(hlpr, epoch, backdoor=True)
 
-        hlpr.save_model(hlpr.task.model, epoch, metric) # Saves the global model checkpoint.
+        hlpr.save_model(hlpr.task.model, epoch, metric)
+
 
 def run_fl_round(hlpr, epoch):
-    global_model = hlpr.task.model        # The shared model that is updated each round.
-    local_model = hlpr.task.local_model   # A copy of the global model used for local training on each client.
+    global_model = hlpr.task.model
+    local_model = hlpr.task.local_model
 
-    round_participants = hlpr.task.sample_users_for_round(epoch)  # Selects a subset of clients (users) to participate in the current round.
-    weight_accumulator = hlpr.task.get_empty_accumulator()        #  An empty data structure used to accumulate local model updates from participants.
+    round_participants = hlpr.task.sample_users_for_round(epoch)
+    weight_accumulator = hlpr.task.get_empty_accumulator()
 
-    # Loops over each selected participant to perform local training and collect updates.
     for user in tqdm(round_participants):
-        hlpr.task.copy_params(global_model, local_model)        # Ensures that each participant starts with the latest global model parameters.
-        optimizer = hlpr.task.make_optimizer(local_model)       # Sets up an optimizer for the local model on the participant's device.
-        
-        # Trains the local model on the participant's data for a specified number of local epochs.
-        # If the user is compromised, the train function is called with attack=True, simulating backdoor attacks during local training.
+        hlpr.task.copy_params(global_model, local_model)
+        optimizer = hlpr.task.make_optimizer(local_model)
         for local_epoch in range(hlpr.params.fl_local_epochs):
-            if user.compromised:                        
+            if user.compromised:
                 train(hlpr, local_epoch, local_model, optimizer,
                       user.train_loader, attack=True)
             else:
                 train(hlpr, local_epoch, local_model, optimizer,
                       user.train_loader, attack=False)
-                
-        # Calculates the difference between the updated local model and the global model. The fuction get_fl_update is contained in fl_task.py in tasks/fl folder 
         local_update = hlpr.task.get_fl_update(local_model, global_model)
-       
-        # Modifies the local update from compromised users to amplify the impact of the attack.
         if user.compromised:
             hlpr.attack.fl_scale_update(local_update)
-        hlpr.task.accumulate_weights(weight_accumulator, local_update)     # Aggregates the local update to the weight accumulator.
+        hlpr.task.accumulate_weights(weight_accumulator, local_update)
 
-    hlpr.task.update_global_model(weight_accumulator, global_model)       # Updates the global model by applying the aggregated updates from all participants.
+    hlpr.task.update_global_model(weight_accumulator, global_model)
 
 
-############################################################################################################################
-# The main code execution starts here by defining the argparse 
-############################################################################################################################
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Backdoors')
     parser.add_argument('--params', dest='params', default='utils/params.yaml')
@@ -140,26 +114,13 @@ if __name__ == '__main__':
     with open(args.params) as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
-    
-    """
-    Adds additional information to params, including the current timestamp, commit identifier, and experiment name.
-    """
     params['current_time'] = datetime.now().strftime('%b.%d_%H.%M.%S')
     params['commit'] = args.commit
     params['name'] = args.name
 
     helper = Helper(params)
-    # After loading the configuration, the script logs all the parameters in the params dictionary using create_table() and prints it out in human readable form
     logger.warning(create_table(params))
 
-############################################################################################################################
-# Running the Training Loop. The code checks to see if fl is set to true so that it runs federated Learning, else it runs centralized learning
-############################################################################################################################
-
-    """
-    If fl is set to True in the YAML file or programmatically (using the Params dataclass contained in parameters.py, the federated learning workflow (fl_run(helper)) is initiated. 
-    If it’s False, the code runs standard training with run(helper).
-    """
     try:
         if helper.params.fl:
             fl_run(helper)
