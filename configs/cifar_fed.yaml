@@ -32,8 +32,8 @@ report_train_loss: False
 transform_train: True
 
 fl: True
-fl_no_models: 10
-fl_local_epochs: 2
+fl_no_models: 3
+fl_local_epochs: 1
 fl_total_participants: 100
 fl_eta: 1
 fl_sample_dirichlet: False
