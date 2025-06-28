@@ -79,57 +79,88 @@ def fl_run(hlpr: Helper):
 
 def run_fl_round(hlpr, epoch):
     global_model = hlpr.task.model
-    local_model = hlpr.task.local_model
+    local_model  = hlpr.task.local_model
+
+    # ─── One-time CKA helper init ───────────────────────────
+    if epoch == 0:
+        root_loader = hlpr.task.reference_loader
+        hlpr.cka = FedAvgCKA(
+            model_template=global_model,
+            root_loader=root_loader,
+            layer='fc1',
+            device=hlpr.params.device,
+            drop=0.5
+        )
+    # ─────────────────────────────────────────────────────────
 
     round_participants = hlpr.task.sample_users_for_round(epoch)
     weight_accumulator = hlpr.task.get_empty_accumulator()
 
+    locals_w, locals_uid = [], []
+
+    # ─── Per‐client local training ───────────────────────────
     for user in tqdm(round_participants):
+        # copy global → local
         hlpr.task.copy_params(global_model, local_model)
+
+        # create optimizer for local_model
         optimizer = hlpr.task.make_optimizer(local_model)
+
+        # run local epochs
         for local_epoch in range(hlpr.params.fl_local_epochs):
             if user.compromised:
-                train(hlpr, local_epoch, local_model, optimizer,
-                      user.train_loader, attack=True)
+                train(hlpr,
+                      local_epoch,
+                      local_model,
+                      optimizer,
+                      user.train_loader,
+                      attack=True)
             else:
-                train(hlpr, local_epoch, local_model, optimizer,
-                      user.train_loader, attack=False)
+                train(hlpr,
+                      local_epoch,
+                      local_model,
+                      optimizer,
+                      user.train_loader,
+                      attack=False)
+
+        # get the update (weights or delta)
         local_update = hlpr.task.get_fl_update(local_model, global_model)
+
+        # scale it if this user is adversarial
         if user.compromised:
             hlpr.attack.fl_scale_update(local_update)
 
- # ------------------------------------------------------------------
-        # ⬇︎ CKA DEFENCE ⬇︎
-        if epoch == 0:                       # one-time init of defence helper
-            root_set   = hlpr.task.reference_loader   # or build a small clean loader
-            cka_helper = FedAvgCKA(model_template=global_model,
-                                   root_loader=root_set,
-                                   layer='fc1',           # penultimate layer
-                                   device=hlpr.params.device,
-                                   drop=0.5)
-        
-        # gather each client’s *final* weight dict after local training
-        locals_w.append({n: p.clone().cpu() for n,p in local_model.state_dict().items()})
+        # collect for defence
+        locals_w.append(local_update)
         locals_uid.append(user.user_id)
-        ...
-        #   ≣ after the for-user loop finishes ≣
-        keep_idx, _, agg_w, sim = cka_helper.filter_and_aggregate(locals_w)
-        
-        # ➡️ visualise similarities
-        import seaborn as sns, matplotlib.pyplot as plt
-        sns.heatmap(sim, vmin=0, vmax=1, cmap='viridis',
-                    xticklabels=locals_uid, yticklabels=locals_uid, square=True)
-        plt.title(f'CKA similarities – round {epoch}'); plt.show()
-        
-        # ➡️ replace locals_w with survivors *before* accumulation
-        locals_w = [locals_w[i] for i in keep_idx]
-# ------------------------------------------------------------------
-        for local_update in locals_w:
-            hlpr.task.accumulate_weights(weight_accumulator, local_update)
+    # ─────────────────────────────────────────────────────────
 
-        #hlpr.task.accumulate_weights(weight_accumulator, local_update)
+    # ─── CKA defence & heat-map (after collecting all updates) ─
+    keep_idx, _, _, sim = hlpr.cka.filter_and_aggregate(locals_w)
 
+    import seaborn as sns, matplotlib.pyplot as plt
+    plt.figure(figsize=(5,5))
+    sns.heatmap(sim,
+                vmin=0, vmax=1,
+                cmap='viridis',
+                xticklabels=locals_uid,
+                yticklabels=locals_uid,
+                square=True)
+    plt.title(f'CKA similarities – round {epoch}')
+    plt.show()
+
+    # filter out the low-similarity updates
+    locals_w = [locals_w[i] for i in keep_idx]
+    # ─────────────────────────────────────────────────────────
+
+    # ─── Aggregate survivors exactly as before ───────────────
+    for w in locals_w:
+        hlpr.task.accumulate_weights(weight_accumulator, w)
+
+    # update the global model in place
     hlpr.task.update_global_model(weight_accumulator, global_model)
+    # ─────────────────────────────────────────────────────────
+
 
 
 if __name__ == '__main__':
