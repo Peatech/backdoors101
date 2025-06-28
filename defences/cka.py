@@ -59,8 +59,15 @@ class FedAvgCKA:
         self.last_sim=sim
         mean=sim.mean(1); keep=(mean>=torch.quantile(mean,self.drop))
         keep_idx=keep.nonzero(as_tuple=False).flatten().tolist()
-        kept=[locals_w[i] for i in keep_idx]
-        agg=copy.deepcopy(kept[0])
+        if len(keep_idx) == 0:
+        # Fallback: no client passed the filter → use all updates
+            keep_idx = list(range(len(locals_w)))
+            kept = locals_w
+        else:
+            kept = [locals_w[i] for i in keep_idx]
+        # Now safe to deepcopy the first survivor
+        agg = copy.deepcopy(kept[0])
+
         for k in agg.keys():
             agg[k].zero_()
             for w in kept: agg[k]+=w[k]
