@@ -1,7 +1,7 @@
 import argparse
 import shutil
 from datetime import datetime
-
+from defences.cka import FedAvgCKA
 import yaml
 from prompt_toolkit import prompt
 from tqdm import tqdm
@@ -97,7 +97,37 @@ def run_fl_round(hlpr, epoch):
         local_update = hlpr.task.get_fl_update(local_model, global_model)
         if user.compromised:
             hlpr.attack.fl_scale_update(local_update)
-        hlpr.task.accumulate_weights(weight_accumulator, local_update)
+
+ # ------------------------------------------------------------------
+        # ⬇︎ CKA DEFENCE ⬇︎
+        if epoch == 0:                       # one-time init of defence helper
+            root_set   = hlpr.task.reference_loader   # or build a small clean loader
+            cka_helper = FedAvgCKA(model_template=global_model,
+                                   root_loader=root_set,
+                                   layer='fc1',           # penultimate layer
+                                   device=hlpr.params.device,
+                                   drop=0.5)
+        
+        # gather each client’s *final* weight dict after local training
+        locals_w.append({n: p.clone().cpu() for n,p in local_model.state_dict().items()})
+        locals_uid.append(user.user_id)
+        ...
+        #   ≣ after the for-user loop finishes ≣
+        keep_idx, _, agg_w, sim = cka_helper.filter_and_aggregate(locals_w)
+        
+        # ➡️ visualise similarities
+        import seaborn as sns, matplotlib.pyplot as plt
+        sns.heatmap(sim, vmin=0, vmax=1, cmap='viridis',
+                    xticklabels=locals_uid, yticklabels=locals_uid, square=True)
+        plt.title(f'CKA similarities – round {epoch}'); plt.show()
+        
+        # ➡️ replace locals_w with survivors *before* accumulation
+        locals_w = [locals_w[i] for i in keep_idx]
+# ------------------------------------------------------------------
+        for local_update in locals_w:
+            hlpr.task.accumulate_weights(weight_accumulator, local_update)
+
+        #hlpr.task.accumulate_weights(weight_accumulator, local_update)
 
     hlpr.task.update_global_model(weight_accumulator, global_model)
 
