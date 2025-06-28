@@ -9,10 +9,36 @@ def cka(X:torch.Tensor, Y:torch.Tensor)->float:
     return (_hsic(K,L)/math.sqrt(_hsic(K,K)*_hsic(L,L)+1e-12)).item()
 # ---------- Algorithm 2 : FedAvgCKA --------------------------------------
 class FedAvgCKA:
-    def __init__(self, model_template, root_loader, layer, device, drop=0.5):
-        self.template, self.root_loader, self.layer, self.dev = \
-            model_template, root_loader, layer, device
-        self.drop=drop; self.last_sim=None
+    def __init__(self,
+                 model_template: torch.nn.Module,
+                 root_loader: DataLoader = None,
+                 root_dataset: torch.utils.data.Dataset = None,
+                 ref_size: int = 32,
+                 layer_name: str = 'fc1',
+                 device: torch.device = torch.device('cpu'),
+                 discard_ratio: float = 0.5):
+        """
+        You must pass EITHER root_loader OR root_dataset.
+        If root_dataset is provided, we build a <ref_size>-example loader.
+        """
+        self.template   = model_template
+        self.layer_name = layer_name
+        self.device     = device
+        self.drop       = discard_ratio
+
+        if root_loader is not None:
+            self.root_loader = root_loader
+        elif root_dataset is not None:
+            from torch.utils.data import DataLoader, Subset
+            import random
+            idxs = random.sample(range(len(root_dataset)), ref_size)
+            self.root_loader = DataLoader(
+                Subset(root_dataset, idxs),
+                batch_size=ref_size,
+                shuffle=False
+            )
+        else:
+            raise ValueError("Provide either root_loader or root_dataset")
     def _acts(self, weights):
         m=copy.deepcopy(self.template).to(self.dev)
         m.load_state_dict(weights, strict=True); m.eval(); buf=[]
