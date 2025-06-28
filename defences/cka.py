@@ -25,7 +25,7 @@ class FedAvgCKA:
         If root_dataset is provided, we build a <ref_size>-example loader.
         """
         self.template   = model_template
-        self.layer_name = layer_name
+        self.layer = layer
         self.device     = device
         self.drop       = discard_ratio
 
