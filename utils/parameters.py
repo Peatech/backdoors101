@@ -103,9 +103,9 @@ class Params:
     # FL params
     fl: bool = True
     fl_no_models: int = 100
-    fl_local_epochs: int = 3
+    fl_local_epochs: int = 1
     fl_total_participants: int = 80000
-    fl_eta: int = 1
+    fl_eta: int = 10
     fl_sample_dirichlet: bool = False
     fl_dirichlet_alpha: float = None
     fl_diff_privacy: bool = False
