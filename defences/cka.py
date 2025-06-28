@@ -43,12 +43,12 @@ class FedAvgCKA:
         else:
             raise ValueError("Provide either root_loader or root_dataset")
     def _acts(self, weights):
-        m=copy.deepcopy(self.template).to(self.dev)
+        m=copy.deepcopy(self.template).to(self.device)
         m.load_state_dict(weights, strict=True); m.eval(); buf=[]
         h=dict(m.named_modules())[self.layer]\
               .register_forward_hook(lambda _,__,out: buf.append(out.reshape(out.size(0),-1).detach()))
         with torch.no_grad():
-            for x,_ in self.root_loader: m(x.to(self.dev))
+            for x,_ in self.root_loader: m(x.to(self.device))
         h.remove(); return torch.cat(buf,0).cpu()
     def filter_and_aggregate(self, locals_w:List[dict]):
         acts=[self._acts(w) for w in locals_w]
