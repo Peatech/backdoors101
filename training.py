@@ -68,6 +68,12 @@ def run(hlpr):
             hlpr.task.scheduler.step(epoch)
 
 def fl_run(hlpr: Helper):
+    root_loader = hlpr.task.reference_loader
+    hlpr.cka = FedAvgCKA(model_template=hlpr.task.model,
+                         root_loader=root_loader,
+                         layer='fc1',
+                         device=hlpr.params.device,
+                         drop=0.5)
     for epoch in range(hlpr.params.start_epoch,
                        hlpr.params.epochs + 1):
         run_fl_round(hlpr, epoch)
@@ -80,19 +86,6 @@ def fl_run(hlpr: Helper):
 def run_fl_round(hlpr, epoch):
     global_model = hlpr.task.model
     local_model  = hlpr.task.local_model
-
-    # ─── One-time CKA helper init ───────────────────────────
-    if epoch == 0:
-        root_loader = hlpr.task.reference_loader
-        hlpr.cka = FedAvgCKA(
-            model_template=global_model,
-            root_loader=root_loader,
-            layer='fc1',
-            device=hlpr.params.device,
-            drop=0.5
-        )
-    # ─────────────────────────────────────────────────────────
-
     round_participants = hlpr.task.sample_users_for_round(epoch)
     weight_accumulator = hlpr.task.get_empty_accumulator()
 
