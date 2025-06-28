@@ -1,4 +1,7 @@
 import math, copy, torch, numpy as np
+import random
+from torch.utils.data import DataLoader, Subset
+
 from typing import List, Tuple
 # ---------- Algorithm 1 : centred linear CKA ------------------------------
 def _center(A): return A - A.mean(0, keepdims=True)
