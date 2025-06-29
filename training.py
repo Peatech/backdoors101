@@ -160,41 +160,41 @@ def run_fl_round(hlpr, epoch, cka_helper):
 
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Backdoors')
-    parser.add_argument('--params', dest='params', default='utils/params.yaml')
-    parser.add_argument('--name', dest='name', required=True)
-    parser.add_argument('--commit', dest='commit',
-                        default=get_current_git_hash())
 
-    args = parser.parse_args()
+parser = argparse.ArgumentParser(description='Backdoors')
+parser.add_argument('--params', dest='params', default='utils/params.yaml')
+parser.add_argument('--name', dest='name', required=True)
+parser.add_argument('--commit', dest='commit',
+                    default=get_current_git_hash())
 
-    with open(args.params) as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
+args = parser.parse_args()
 
-    params['current_time'] = datetime.now().strftime('%b.%d_%H.%M.%S')
-    params['commit'] = args.commit
-    params['name'] = args.name
+with open(args.params) as f:
+    params = yaml.load(f, Loader=yaml.FullLoader)
 
-    helper = Helper(params)
-    logger.warning(create_table(params))
+params['current_time'] = datetime.now().strftime('%b.%d_%H.%M.%S')
+params['commit'] = args.commit
+params['name'] = args.name
 
-    try:
-        if helper.params.fl:
-            fl_run(helper)
+helper = Helper(params)
+logger.warning(create_table(params))
+
+try:
+    if helper.params.fl:
+        fl_run(helper)
+    else:
+        run(helper)
+except (KeyboardInterrupt):
+    if helper.params.log:
+        answer = prompt('\nDelete the repo? (y/n): ')
+        if answer in ['Y', 'y', 'yes']:
+            logger.error(f"Fine. Deleted: {helper.params.folder_path}")
+            shutil.rmtree(helper.params.folder_path)
+            if helper.params.tb:
+                shutil.rmtree(f'runs/{args.name}')
         else:
-            run(helper)
-    except (KeyboardInterrupt):
-        if helper.params.log:
-            answer = prompt('\nDelete the repo? (y/n): ')
-            if answer in ['Y', 'y', 'yes']:
-                logger.error(f"Fine. Deleted: {helper.params.folder_path}")
-                shutil.rmtree(helper.params.folder_path)
-                if helper.params.tb:
-                    shutil.rmtree(f'runs/{args.name}')
-            else:
-                logger.error(f"Aborted training. "
-                             f"Results: {helper.params.folder_path}. "
-                             f"TB graph: {args.name}")
-        else:
-            logger.error(f"Aborted training. No output generated.")
+            logger.error(f"Aborted training. "
+                         f"Results: {helper.params.folder_path}. "
+                         f"TB graph: {args.name}")
+    else:
+        logger.error(f"Aborted training. No output generated.")
