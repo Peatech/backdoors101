@@ -63,17 +63,18 @@ class LayerwiseCKAVisualizer:
             mat = sims[layer].numpy()
             mean, sd = mat.mean(), mat.std()
             vmin, vmax = mean - 3*sd, mean + 3*sd
-            sns.heatmap(mat,
-                        ax=axes[idx],
-                        cmap='magma',
-                        vmin=vmin,
-                        vmax=vmax,
-                        cbar_kws={'label':'CKA'},
-                        square=True,                
-                        annot=False,     # turn off annotations if too dense
-                        xticklabels=client_ids,
-                        yticklabels=client_ids
-                       )
+            sns.heatmap(
+                mat,
+                ax=axes[idx],
+                cmap='magma',
+                vmin=vmin,
+                vmax=vmax,
+                cbar_kws={'label':'CKA'},
+                square=True,
+                annot=False,
+                xticklabels=client_ids,
+                yticklabels=client_ids
+            )
             axes[idx].set_title(f'Layer: {layer}')
             axes[idx].set_xlabel('Client idx')
             axes[idx].set_ylabel('Client idx')
@@ -82,3 +83,4 @@ class LayerwiseCKAVisualizer:
         plt.tight_layout()
         plt.show()
         return fig
+
