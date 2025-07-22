@@ -53,7 +53,7 @@ class LayerwiseCKAVisualizer:
             sims[layer] = sim
         return sims
 
-    def plot_heatmaps(self, sims, client_ids=None):
+    def plot_heatmaps(self, sims, client_ids):
         n = len(self.layer_names)
         cols = min(4, n)
         rows = (n + cols - 1) // cols
