@@ -7,7 +7,7 @@ test_batch_size: 100
 lr: 0.1
 momentum: 0.9
 decay: 0.0005
-epochs: 100
+epochs: 350
 save_on_epochs: []
 optimizer: SGD
 log_interval: 100
@@ -42,8 +42,8 @@ fl_diff_privacy:  False
 fl_dp_clip: None
 fl_dp_noise: None
 
-fl_number_of_adversaries: 2
-fl_weight_scale: 100
+fl_number_of_adversaries: 20
+fl_weight_scale: 20
 #fl_single_epoch_attack: 1
 
 
