@@ -13,7 +13,7 @@ optimizer: SGD
 log_interval: 100
 scheduler: False
 
-poisoning_proportion: 1.0
+poisoning_proportion: 0.2
 backdoor_label: 8
 backdoor: True
 backdoor_dynamic_position: False
@@ -26,6 +26,21 @@ log: False
 tb: False
 
 transform_train: True
+
+fl: True
+fl_no_models: 10
+fl_local_epochs: 2
+fl_total_participants: 20
+fl_eta: 10
+fl_sample_dirichlet: False
+fl_dirichlet_alpha: None
+fl_diff_privacy:  False
+fl_dp_clip: None
+fl_dp_noise: None
+
+fl_number_of_adversaries: 5
+fl_weight_scale: 5
+#fl_single_epoch_attack: 1
 
 
 loss_tasks:
