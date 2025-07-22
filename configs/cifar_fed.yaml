@@ -21,10 +21,10 @@ backdoor_label: 8
 
 #resume_model: model_CifarFed_Nov.26_20.32.44_no_attack_fl/model
 
-loss_balance: fixed
-fixed_scales:
-  backdoor: 1
-  normal:   1
+loss_balance: MGDA
+# fixed_scales:
+#   backdoor: 1
+#   normal:   1
 mgda_normalize: none
 
 save_model: True
@@ -47,7 +47,7 @@ fl_dp_noise: None
 
 fl_number_of_adversaries: 20
 fl_weight_scale: 5
-#fl_single_epoch_attack: 1
+fl_single_epoch_attack: 1
 
 
 loss_tasks:
