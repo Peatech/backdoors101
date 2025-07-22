@@ -1,7 +1,9 @@
 import argparse
 import shutil
 from datetime import datetime
-
+from fedavgcka import LayerwiseCKAVisualizer
+from torch.utils.data import DataLoader, Subset
+import numpy as np
 import yaml
 from prompt_toolkit import prompt
 from tqdm import tqdm
@@ -12,7 +14,6 @@ from helper import Helper
 from utils.utils import *
 
 logger = logging.getLogger('logger')
-
 
 def train(hlpr: Helper, epoch, model, optimizer, train_loader, attack=True):
     criterion = hlpr.task.criterion
@@ -80,10 +81,26 @@ def fl_run(hlpr: Helper):
 def run_fl_round(hlpr, epoch):
     global_model = hlpr.task.model
     local_model = hlpr.task.local_model
-
     round_participants = hlpr.task.sample_users_for_round(epoch)
+    # Prepare root-loader for CKA (same for all clients)
+    test_dataset = hlpr.task.test_dataset                              
+    all_idxs     = np.arange(len(test_dataset))
+    root_idxs    = np.random.choice(all_idxs, 64, replace=False)
+    root_loader  = DataLoader(Subset(test_dataset, root_idxs),
+                                  batch_size=64, shuffle=False)
+    
+    # Instantiate the CKA visualizer on the 3 key layers
+    model_template = global_model
+    layer_list     = ['layer2', 'layer3', 'layer4']
+    cka_vis = LayerwiseCKAVisualizer(
+        model_template=model_template,
+        root_loader=root_loader,
+        layer_names=layer_list,
+        device=hlpr.params.device
+    )
+    
     weight_accumulator = hlpr.task.get_empty_accumulator()
-
+    all_updates = []  # NEW: collect per‐client updates
     for user in tqdm(round_participants):
         hlpr.task.copy_params(global_model, local_model)
         optimizer = hlpr.task.make_optimizer(local_model)
@@ -97,8 +114,11 @@ def run_fl_round(hlpr, epoch):
         local_update = hlpr.task.get_fl_update(local_model, global_model)
         if user.compromised:
             hlpr.attack.fl_scale_update(local_update)
+        all_updates.append(local_update)  # NEW FOR CKA
         hlpr.task.accumulate_weights(weight_accumulator, local_update)
-
+    
+    sims = cka_vis.compute_similarity_matrices(all_updates)
+    visualizer.plot_heatmaps(sims)
     hlpr.task.update_global_model(weight_accumulator, global_model)
 
 
