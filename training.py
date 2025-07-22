@@ -118,6 +118,11 @@ def run_fl_round(hlpr, epoch):
         hlpr.task.accumulate_weights(weight_accumulator, local_update)
     
     sims = cka_vis.compute_similarity_matrices(all_updates)
+    for layer, mat in sims.items():
+        arr = mat.numpy()
+        print(f"[CKA] Layer={layer}: min={arr.min():.6f}, max={arr.max():.6f}, "
+              f"mean={arr.mean():.6f}, std={arr.std():.6f}")
+ 
     cka_vis.plot_heatmaps(sims)
     hlpr.task.update_global_model(weight_accumulator, global_model)
 
