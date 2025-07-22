@@ -37,7 +37,7 @@ transform_train: True
 fl: True
 fl_no_models: 10
 fl_local_epochs: 2
-fl_total_participants: 100
+fl_total_participants: 20
 fl_eta: 10
 fl_sample_dirichlet: False
 fl_dirichlet_alpha: None
@@ -45,7 +45,7 @@ fl_diff_privacy:  False
 fl_dp_clip: None
 fl_dp_noise: None
 
-fl_number_of_adversaries: 20
+fl_number_of_adversaries: 5
 fl_weight_scale: 5
 fl_single_epoch_attack: 1
 
