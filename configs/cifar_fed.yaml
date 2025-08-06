@@ -42,7 +42,7 @@ fl_diff_privacy:  False
 fl_dp_clip: None
 fl_dp_noise: None
 
-fl_number_of_adversaries: 0
+fl_number_of_adversaries: 20
 fl_weight_scale: 100
 #fl_single_epoch_attack: 1
 
